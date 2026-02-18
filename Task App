@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Homeschool Tasks</title>
+
+<!-- iOS APP MODE -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Homeschool Tasks">
+<link rel="apple-touch-icon" href="icon.png">
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #f4f4f4;
+    margin: 0;
+    padding: 10px;
+}
+
+h1 {
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.tabs {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+
+button {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 10px;
+    background: #007aff;
+    color: white;
+    cursor: pointer;
+}
+
+button.active {
+    background: #0051c7;
+}
+
+.task {
+    background: white;
+    padding: 10px;
+    margin: 8px 0;
+    border-radius: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.subject {
+    padding: 4px 8px;
+    border-radius: 6px;
+    color: white;
+    font-size: 12px;
+}
+
+/* SUBJECT COLOURS */
+.maths { background: #007aff; }
+.history { background: #ffcc00; color: #000; }
+.philosophy { background: #ff3b30; }
+.economics { background: #34c759; }
+.music { background: #ff2d8d; }
+.other { background: #0a1a3a; }
+
+#addTaskBtn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    font-size: 26px;
+    border-radius: 50%;
+    width: 56px;
+    height: 56px;
+}
+
+/* CALENDAR */
+.calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+}
+
+.day {
+    background: white;
+    border-radius: 12px;
+    padding: 6px;
+    min-height: 65px;
+    position: relative;
+}
+
+.day-number {
+    font-size: 12px;
+    opacity: 0.6;
+}
+
+.dots {
+    position: absolute;
+    bottom: 6px;
+    left: 6px;
+    display: flex;
+    gap: 3px;
+}
+
+.dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+</style>
+</head>
+
+<body>
+
+<h1>📚 Homeschool Tasks</h1>
+
+<div class="tabs">
+    <button onclick="setTab('daily')" class="active">Daily</button>
+    <button onclick="setTab('weekly')">Weekly</button>
+    <button onclick="setTab('calendar')">Calendar</button>
+    <button onclick="setTab('past')">Past</button>
+</div>
+
+<div id="content"></div>
+
+<button id="addTaskBtn" onclick="addTask()">+</button>
+
+<script>
+let currentTab = 'daily';
+let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+
+function setTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+    render();
+}
+
+function addTask() {
+    const name = prompt("Task name:");
+    if (!name) return;
+
+    const subject = prompt(
+        "Subject:\nmaths, history, philosophy, economics, music, other",
+        "maths"
+    );
+
+    const type = prompt("daily or weekly?", "daily");
+    const date = prompt(
+        "Date (YYYY-MM-DD):",
+        new Date().toISOString().split('T')[0]
+    );
+
+    tasks.push({
+        id: Date.now(),
+        name,
+        subject,
+        type,
+        date,
+        completed: false
+    });
+
+    save();
+}
+
+function completeTask(id) {
+    tasks = tasks.map(t =>
+        t.id === id ? { ...t, completed: true } : t
+    );
+    save();
+}
+
+function save() {
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+    render();
+}
+
+function renderTasks() {
+    const container = document.getElementById('content');
+    container.innerHTML = "";
+
+    tasks.filter(t => {
+        if (currentTab === 'past') return t.completed;
+        return t.type === currentTab && !t.completed;
+    }).forEach(task => {
+        const div = document.createElement('div');
+        div.className = 'task';
+        div.innerHTML = `
+            <div>
+                <strong>${task.name}</strong><br>
+                <span class="subject ${task.subject}">${task.subject}</span>
+            </div>
+            <input type="checkbox" onclick="completeTask(${task.id})">
+        `;
+        container.appendChild(div);
+    });
+}
+
+function renderCalendar() {
+    const container = document.getElementById('content');
+    container.innerHTML = `<div class="calendar"></div>`;
+    const cal = container.querySelector('.calendar');
+
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        const dayTasks = tasks.filter(t => t.date === dateStr && !t.completed);
+
+        const day = document.createElement('div');
+        day.className = 'day';
+        day.innerHTML = `<div class="day-number">${d}</div>`;
+
+        if (dayTasks.length) {
+            const dots = document.createElement('div');
+            dots.className = 'dots';
+
+            [...new Set(dayTasks.map(t => t.subject))].forEach(sub => {
+                const dot = document.createElement('div');
+                dot.className = `dot ${sub}`;
+                dots.appendChild(dot);
+            });
+
+            day.appendChild(dots);
+        }
+
+        cal.appendChild(day);
+    }
+}
+
+function render() {
+    if (currentTab === 'calendar') {
+        renderCalendar();
+    } else {
+        renderTasks();
+    }
+}
+
+render();
+</script>
+
+</body>
+</html>
